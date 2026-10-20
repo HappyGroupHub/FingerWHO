@@ -145,6 +145,52 @@
   transform: translateX(-50%) scale(0.95);
 }
 
+/* Opening screen: one tap here is what lets iPhones play sound from the first round. */
+.start {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: none;
+  background: #0d0d0d;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.startIcon {
+  width: 120px;
+  height: 120px;
+}
+
+.startTitle {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.startCta {
+  margin-top: 18px;
+  padding: 12px 28px;
+  border-radius: 999px;
+  background: #7db928;
+  font-size: 17px;
+  font-weight: 600;
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
 .card {
   position: absolute;
   left: 50%;

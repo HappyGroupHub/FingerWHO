@@ -39,6 +39,8 @@ export default function Chooser() {
   const [qr, setQr] = useState<{ room: string; src: string } | null>(null);
   const [copied, setCopied] = useState<"no" | "yes" | "failed">("no");
   const [soundOn, setSoundOn] = useState(false);
+  /** Past the opening screen, whose tap is what lets iPhones play sound from the first round. */
+  const [started, setStarted] = useState(false);
 
   const sendTouches = useCallback(() => {
     const held = [...fingersRef.current.values()].filter((f) => !f.lifted && f.goneAt === null);
@@ -296,7 +298,7 @@ export default function Chooser() {
           {room && status === "online" && <span className={styles.badge}>{snap.devices}</span>}
           {room && status === "connecting" && <span className={`${styles.badge} ${styles.pending}`} />}
         </button>
-        {!soundOn && panel === "none" && (
+        {started && !soundOn && panel === "none" && (
           <button className={styles.soundBtn} onClick={unlockAudio}>
             <MutedIcon />
             點一下開啟聲音
@@ -363,6 +365,21 @@ export default function Chooser() {
             </div>
           </div>
         </div>
+      )}
+
+      {!started && (
+        <button
+          className={styles.start}
+          onClick={() => {
+            unlockAudio();
+            setStarted(true);
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- a small static icon; the static export has no image optimizer */}
+          <img className={styles.startIcon} src="/icon-192.png" alt="" />
+          <span className={styles.startTitle}>FingerWHO</span>
+          <span className={styles.startCta}>點一下開始</span>
+        </button>
       )}
     </main>
   );
