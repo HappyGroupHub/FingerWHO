@@ -31,20 +31,24 @@ export type ServerMsg =
   | { t: "state"; s: Snapshot }
   | { t: "pong"; c: number; s: number };
 
-export const COUNTDOWN_MS = 3000;
+export const COUNTDOWN_MS = 2200;
+/** Into the countdown the rings sit still for a moment, then a bright arc draws once around each. */
+export const RING_FILL_DELAY_MS = 800;
+export const RING_FILL_MS = 1200;
 /** Time between the server deciding and the reveal starting, so every device has the message in hand. */
 export const REVEAL_LEAD_MS = 350;
-/** After the winner pops: losers shrink, the winner's color floods the screen, holds, then pulls back. */
-export const LAND_HOLD_MS = 250;
+/** Once picked: losers shrink away, the winner stands alone, then its color floods the screen, holds, and pulls back. */
+export const LAND_HOLD_MS = 50;
 export const SHRINK_MS = 350;
-export const FLOOD_MS = 750;
-export const FLOOD_HOLD_MS = 1500;
-export const UNFLOOD_MS = 650;
+export const ALONE_MS = 500;
+export const FLOOD_MS = 300;
+export const FLOOD_HOLD_MS = 2000;
+export const UNFLOOD_MS = 400;
 export const MAX_WINNERS = 9;
 
 export const minFingers = (winners: number) => Math.max(2, winners + 1);
 
-export const revealEnd = (r: Reveal) => r.landAt + LAND_HOLD_MS + SHRINK_MS + FLOOD_MS + FLOOD_HOLD_MS + UNFLOOD_MS;
+export const revealEnd = (r: Reveal) => r.landAt + LAND_HOLD_MS + SHRINK_MS + ALONE_MS + FLOOD_MS + FLOOD_HOLD_MS + UNFLOOD_MS;
 
 export const keyOf = (deviceId: string, touchId: string): FingerKey => `${deviceId}:${touchId}`;
 

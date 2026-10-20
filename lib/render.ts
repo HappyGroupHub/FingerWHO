@@ -1,11 +1,14 @@
 "use client";
 
 import {
+  ALONE_MS,
   COUNTDOWN_MS,
   FLOOD_HOLD_MS,
   FLOOD_MS,
   FingerKey,
   LAND_HOLD_MS,
+  RING_FILL_DELAY_MS,
+  RING_FILL_MS,
   SHRINK_MS,
   Snapshot,
   UNFLOOD_MS,
@@ -38,6 +41,8 @@ const BG = "#0d0d0d";
 const CORE_R = 34;
 const RING_R = 50;
 const RING_W = 7;
+const TOP = -Math.PI / 2;
+const WINNER_SCALE = 1.08;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const easeOutBack = (t: number) => 1 + 2.4 * Math.pow(t - 1, 3) + 1.4 * Math.pow(t - 1, 2);
@@ -51,17 +56,16 @@ export function draw(f: Frame) {
 
   const reveal = snap.reveal;
   if (!reveal) {
-    const progress =
-      snap.countdownEndsAt === null ? 0 : clamp01(1 - (snap.countdownEndsAt - f.roomNow) / COUNTDOWN_MS);
+    const elapsed = snap.countdownEndsAt === null ? 0 : f.roomNow - (snap.countdownEndsAt - COUNTDOWN_MS);
+    const fill = snap.countdownEndsAt === null ? 0 : clamp01((elapsed - RING_FILL_DELAY_MS) / RING_FILL_MS);
     for (const finger of f.fingers) {
       const index = snap.colors[finger.key] ?? finger.colorIndex;
       if (index === undefined || index === null) continue;
       drawFinger(ctx, finger, paletteColor(index), {
         scale: growScale(f.localNow, finger),
-        progress: finger.goneAt === null ? progress : 0,
+        fill: finger.goneAt === null ? fill : 0,
         now: f.localNow,
         lit: 0,
-        alpha: 1,
       });
     }
     return;
@@ -69,7 +73,7 @@ export function draw(f: Frame) {
 
   const t = f.roomNow;
   const shrinkAt = reveal.landAt + LAND_HOLD_MS;
-  const floodAt = shrinkAt + SHRINK_MS;
+  const floodAt = shrinkAt + SHRINK_MS + ALONE_MS;
   const winners = new Set(reveal.winners);
 
   const landed = t >= reveal.landAt;
@@ -77,23 +81,17 @@ export function draw(f: Frame) {
 
   const visible = f.fingers.filter((finger) => snap.colors[finger.key] !== undefined);
 
-  // The winner pops and lights up; everyone else dims and shrinks away.
+  // The winner lights up and grows a touch; everyone else shrinks away.
   for (const finger of visible) {
     const isWinner = winners.has(finger.key);
     let scale = 1;
-    let alpha = 1;
-    if (landed) {
-      scale = isWinner ? 1 + 0.18 * pop : 1 - 0.12 * pop;
-      alpha = isWinner ? 1 : 1 - 0.6 * clamp01((t - reveal.landAt) / 200);
-    }
-    if (landed && !isWinner) scale *= 1 - easeIn(clamp01((t - shrinkAt) / SHRINK_MS));
+    if (landed) scale = isWinner ? 1 + (WINNER_SCALE - 1) * pop : 1 - easeIn(clamp01((t - shrinkAt) / SHRINK_MS));
     if (scale <= 0.01) continue;
     drawFinger(ctx, finger, paletteColor(snap.colors[finger.key]), {
       scale,
-      progress: 1,
+      fill: 1,
       now: f.localNow,
       lit: landed && isWinner ? 1 : 0,
-      alpha,
     });
   }
 
@@ -110,7 +108,7 @@ export function draw(f: Frame) {
   const cx = local ? local.x : width / 2;
   const cy = local ? local.y : height / 2;
   const far = Math.hypot(Math.max(cx, width - cx), Math.max(cy, height - cy)) + 4;
-  const finalR = local ? RING_R * 1.18 + 26 : 0;
+  const finalR = local ? RING_R * WINNER_SCALE + 26 : 0;
   const k =
     t < unfloodAt
       ? easeInOut(clamp01((t - floodAt) / FLOOD_MS))
@@ -126,7 +124,7 @@ export function draw(f: Frame) {
   ctx.restore();
 
   if (local) {
-    drawFinger(ctx, local, color, { scale: 1.18, progress: 1, now: f.localNow, lit: 1, alpha: 1 });
+    drawFinger(ctx, local, color, { scale: WINNER_SCALE, fill: 1, now: f.localNow, lit: 1 });
   }
 }
 
@@ -137,54 +135,43 @@ function growScale(now: number, finger: DrawnFinger) {
 
 interface Look {
   scale: number;
-  /** Countdown progress 0..1: the ring brightens and speeds up. */
-  progress: number;
+  /** 0..1: how far the countdown's bright arc has drawn around the ring. */
+  fill: number;
   now: number;
   /** 1 when the light is on this finger. */
   lit: number;
-  alpha: number;
 }
 
 function drawFinger(ctx: CanvasRenderingContext2D, finger: DrawnFinger, color: string, look: Look) {
   if (look.scale <= 0.01) return;
   const { x, y } = finger;
   const s = look.scale;
-  const p = look.progress;
   const age = look.now - finger.bornAt;
 
   ctx.save();
-  ctx.globalAlpha = look.alpha;
-
-  if (look.lit) {
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 40;
-  }
 
   // Core dot.
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(x, y, CORE_R * s, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowBlur = 0;
 
-  // Ring: sweeps in when the finger lands, darker than the core, turning
-  // lighter as the countdown runs.
+  // Ring: draws in counterclockwise from the top when the finger lands, in a
+  // darker shade of the core, then sits still.
   const sweep = Math.min(1, age / 650) * Math.PI * 2;
-  const rotation = age / 1000 * (2.2 + p * 5);
-  const ringR = (RING_R + p * 4 + look.lit * 6) * s;
+  const ringR = (RING_R + look.lit * 4) * s;
   ctx.lineCap = "round";
   ctx.lineWidth = RING_W * s;
-  ctx.strokeStyle = look.lit ? mix(color, "#ffffff", 0.55) : mix(color, p > 0 ? "#ffffff" : "#000000", p > 0 ? p * 0.45 : 0.35);
+  ctx.strokeStyle = mix(color, "#000000", 0.35);
   ctx.beginPath();
-  ctx.arc(x, y, ringR, rotation, rotation + sweep);
+  ctx.arc(x, y, ringR, TOP, TOP - sweep, true);
   ctx.stroke();
 
-  // A brighter segment chasing around the ring.
-  if (sweep >= Math.PI * 2) {
-    ctx.strokeStyle = mix(color, "#ffffff", 0.35 + p * 0.4);
-    const head = rotation * 1.6;
+  // Countdown: a bright arc draws once around the ring, clockwise from the top.
+  if (look.fill > 0) {
+    ctx.strokeStyle = mix(color, "#ffffff", look.lit ? 0.55 : 0.45);
     ctx.beginPath();
-    ctx.arc(x, y, ringR, head, head + 0.5 + p * 0.9);
+    ctx.arc(x, y, ringR, TOP, TOP + look.fill * Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();

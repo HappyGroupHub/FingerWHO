@@ -1,11 +1,11 @@
 "use client";
 
-import { COUNTDOWN_MS, LAND_HOLD_MS, SHRINK_MS } from "./game";
+import { LAND_HOLD_MS, SHRINK_MS } from "./game";
 
 /**
  * Small sounds synthesized with Web Audio, no audio files: a soft sine boop
- * per finger, a swelling tone through the countdown, and an airy whoosh as the
- * winner's color floods in.
+ * per finger, a tone swelling up to the pick, and an airy whoosh as the
+ * losers vanish.
  */
 
 let ctx: AudioContext | null = null;
@@ -62,20 +62,24 @@ const SWELL_PARTIALS = [
   [4, 0.004, 0.02],
 ];
 
+/** How long before the pick the swell starts. */
+const SWELL_MS = 850;
+
 /**
- * A steady A4 that swells louder and brighter until `endsAt` (room clock),
- * then stops dead as the winner is picked. Replaces any countdown already playing.
+ * A steady A4 that swells louder and brighter over the last moments before
+ * `endsAt` (room clock), then stops dead as the winner is picked. Replaces any
+ * countdown already playing.
  */
 export function startCountdown(endsAt: number, roomNow: number) {
   stopCountdown();
   if (!ctx || !master) return;
   const end = ctx.currentTime + (endsAt - roomNow) / 1000;
   if (end <= ctx.currentTime) return;
-  const begin = end - COUNTDOWN_MS / 1000;
+  const begin = end - SWELL_MS / 1000;
   swell = ctx.createGain();
   swell.connect(master);
-  // Rises evenly in loudness: barely there at first, full by the end.
-  swell.gain.setValueAtTime(0.005, begin);
+  // Rises evenly in loudness, about 24 dB up to full.
+  swell.gain.setValueAtTime(0.02, begin);
   swell.gain.exponentialRampToValueAtTime(0.32, end);
   swell.gain.setValueAtTime(0.32, end);
   swell.gain.linearRampToValueAtTime(0, end + 0.04);
@@ -102,8 +106,8 @@ export function stopCountdown() {
 }
 
 /**
- * An airy, high whoosh for the device holding a winning finger, timed with the
- * winner's color flooding in after the reveal lands at `landAt` (room clock).
+ * An airy, high whoosh for the device holding a winning finger, as the losers
+ * finish shrinking away after the reveal lands at `landAt` (room clock).
  */
 export function playWin(landAt: number, roomNow: number) {
   if (!ctx || !master) return;
