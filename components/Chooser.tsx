@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { MAX_WINNERS, Snapshot, keyOf, minFingers } from "@/lib/game";
 import { haptic } from "@/lib/haptics";
 import { DrawnFinger, draw } from "@/lib/render";
+import { playTouch, playWin, startCountdown, stopCountdown, unlockAudio } from "@/lib/sound";
 import { ConnectionStatus, Transport, createTransport, newRoomCode } from "@/lib/transport";
 import styles from "./chooser.module.css";
 
@@ -52,9 +53,16 @@ export default function Chooser() {
     snapRef.current = s;
     setSnap(s);
     const now = Date.now();
+    const deviceId = transportRef.current?.deviceId ?? "";
+    const roomNow = transportRef.current?.roomNow() ?? now;
     // Deferred: snapshots can arrive from inside the room's own update.
-    if (syncFingers(fingersRef.current, prev, s, transportRef.current?.deviceId ?? "", now)) queueMicrotask(sendTouches);
-    if (!prev.reveal && s.reveal) scheduleRevealHaptics(s, transportRef.current?.roomNow() ?? now);
+    if (syncFingers(fingersRef.current, prev, s, deviceId, now)) queueMicrotask(sendTouches);
+    if (s.countdownEndsAt !== prev.countdownEndsAt) {
+      if (s.countdownEndsAt !== null) startCountdown(s.countdownEndsAt, roomNow);
+      // The reveal is decided just before the countdown ends: let its last ticks play out.
+      else if (!s.reveal) stopCountdown();
+    }
+    if (!prev.reveal && s.reveal) scheduleReveal(s, deviceId, roomNow);
   }, [sendTouches]);
 
   // One transport for the page's lifetime; join the room in the URL if there is one.
@@ -131,8 +139,10 @@ export default function Chooser() {
       e.preventDefault();
       setPanel("none");
       requestWakeLock();
+      unlockAudio();
       for (const t of e.changedTouches) add(String(t.identifier), t.clientX, t.clientY);
       haptic(10);
+      playTouch(e.touches.length);
       sendTouches();
     };
     const onTouchMove = (e: TouchEvent) => {
@@ -147,6 +157,8 @@ export default function Chooser() {
     };
     const onTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
+      // Some browsers (older iOS) only count a touch's end as the gesture that may start audio.
+      unlockAudio();
       for (const t of e.changedTouches) remove(String(t.identifier));
       sendTouches();
     };
@@ -156,8 +168,13 @@ export default function Chooser() {
       if (e.pointerType !== "mouse") return;
       setPanel("none");
       const hit = [...fingers.values()].find((f) => f.id.startsWith("m") && !f.lifted && f.goneAt === null && Math.hypot(f.x - e.clientX, f.y - e.clientY) < 50);
-      if (hit) remove(hit.id);
-      else add(`m${++mouseSeq.current}`, e.clientX, e.clientY);
+      unlockAudio();
+      if (hit) {
+        remove(hit.id);
+      } else {
+        add(`m${++mouseSeq.current}`, e.clientX, e.clientY);
+        playTouch([...fingers.values()].filter((f) => f.id.startsWith("m") && !f.lifted && f.goneAt === null).length);
+      }
       sendTouches();
     };
 
@@ -362,9 +379,11 @@ function syncFingers(fingers: Map<string, Finger>, prev: Snapshot, s: Snapshot, 
   return changed;
 }
 
-function scheduleRevealHaptics(s: Snapshot, roomNow: number) {
+/** Every device buzzes when the winners land; only a device holding a winning finger plays the reveal sound. */
+function scheduleReveal(s: Snapshot, deviceId: string, roomNow: number) {
   const reveal = s.reveal!;
   setTimeout(() => haptic([30, 40, 80]), Math.max(0, reveal.landAt - roomNow));
+  if (reveal.winners.some((key) => key.startsWith(`${deviceId}:`))) playWin(reveal.landAt, roomNow);
 }
 
 const ROOM_KEY = "fingerwho-room";
