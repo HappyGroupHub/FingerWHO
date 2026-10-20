@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { MAX_WINNERS, Snapshot, keyOf, minFingers } from "@/lib/game";
 import { haptic } from "@/lib/haptics";
 import { DrawnFinger, draw } from "@/lib/render";
-import { playTouch, playWin, startCountdown, stopCountdown, unlockAudio } from "@/lib/sound";
+import { onAudioChange, playTouch, playWin, startCountdown, stopCountdown, unlockAudio } from "@/lib/sound";
 import { ConnectionStatus, Transport, createTransport, newRoomCode } from "@/lib/transport";
 import styles from "./chooser.module.css";
 
@@ -38,6 +38,7 @@ export default function Chooser() {
   const [panel, setPanel] = useState<"none" | "winners" | "devices">("none");
   const [qr, setQr] = useState<{ room: string; src: string } | null>(null);
   const [copied, setCopied] = useState<"no" | "yes" | "failed">("no");
+  const [soundOn, setSoundOn] = useState(false);
 
   const sendTouches = useCallback(() => {
     const held = [...fingersRef.current.values()].filter((f) => !f.lifted && f.goneAt === null);
@@ -109,6 +110,18 @@ export default function Chooser() {
     );
   }, [room]);
 
+  // Sound only starts from a gesture the browser trusts (on iPhones, a quick tap),
+  // so listen for one anywhere on the page, buttons included.
+  useEffect(() => {
+    const events = ["touchend", "pointerup", "click", "keydown"] as const;
+    for (const type of events) document.addEventListener(type, unlockAudio, { capture: true, passive: true });
+    const off = onAudioChange(setSoundOn);
+    return () => {
+      for (const type of events) document.removeEventListener(type, unlockAudio, { capture: true });
+      off();
+    };
+  }, []);
+
   // Touch input.
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -157,8 +170,6 @@ export default function Chooser() {
     };
     const onTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
-      // Some browsers (older iOS) only count a touch's end as the gesture that may start audio.
-      unlockAudio();
       for (const t of e.changedTouches) remove(String(t.identifier));
       sendTouches();
     };
@@ -285,6 +296,12 @@ export default function Chooser() {
           {room && status === "online" && <span className={styles.badge}>{snap.devices}</span>}
           {room && status === "connecting" && <span className={`${styles.badge} ${styles.pending}`} />}
         </button>
+        {!soundOn && panel === "none" && (
+          <button className={styles.soundBtn} onClick={unlockAudio}>
+            <MutedIcon />
+            點一下開啟聲音
+          </button>
+        )}
       </div>
 
       {!busy && panel === "none" && (
@@ -452,6 +469,15 @@ function CheckIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function MutedIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 5 6 9H3v6h3l5 4z" />
+      <path d="m22 9-6 6M16 9l6 6" />
     </svg>
   );
 }

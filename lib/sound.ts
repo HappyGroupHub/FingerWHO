@@ -13,7 +13,12 @@ let master: GainNode | null = null;
 /** The running countdown swell, routed through its own gain so it can be cut off. */
 let swell: GainNode | null = null;
 
-/** Starts audio. Must run inside a touch or click: browsers only allow sound after a user gesture. */
+const listeners = new Set<(on: boolean) => void>();
+
+/**
+ * Starts audio. Must run inside a user gesture, and on iPhones only a quick
+ * tap counts: a finger held down or swiped never unlocks sound.
+ */
 export function unlockAudio() {
   if (typeof window === "undefined") return;
   if (!ctx) {
@@ -26,8 +31,35 @@ export function unlockAudio() {
     master = ctx.createGain();
     master.gain.value = 0.5;
     master.connect(ctx.destination);
+    ctx.onstatechange = () => listeners.forEach((l) => l(ctx?.state === "running"));
+    // That session shows up as media on the lock screen and Dynamic Island; give it the app's name and icon.
+    if ("mediaSession" in navigator && typeof MediaMetadata !== "undefined") {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: "FingerWHO",
+        artwork: [
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+        ],
+      });
+    }
   }
-  if (ctx.state !== "running") ctx.resume().catch(() => {});
+  if (ctx.state === "running") return;
+  ctx.resume().catch(() => {});
+  // Playing something inside the gesture is what fully wakes audio on iPhones,
+  // so the first real sound isn't held back; a single silent sample does.
+  const blip = ctx.createBufferSource();
+  blip.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+  blip.connect(ctx.destination);
+  blip.start();
+}
+
+/** Calls `listener` now and whenever sound turns on or off; returns the unsubscribe. */
+export function onAudioChange(listener: (on: boolean) => void) {
+  listeners.add(listener);
+  listener(ctx?.state === "running");
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 // A minor pentatonic from A3 up to G5: each new finger steps up, ten before it wraps around.

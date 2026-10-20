@@ -119,6 +119,32 @@
   color: #9a9a9a;
 }
 
+.soundBtn {
+  pointer-events: auto;
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 28px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #1c1c1c;
+  color: #cfcfcf;
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: fadeIn 0.3s ease;
+}
+
+.soundBtn:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
 .card {
   position: absolute;
   left: 50%;
