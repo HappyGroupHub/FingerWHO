@@ -4,7 +4,7 @@
 
 *A finger chooser for the web. Everyone puts a finger on the screen and one gets picked. Too many people for one phone? Link a few phones and play as one.*
 
-🔗 線上試玩：**https://YOUR-DOMAIN**
+🔗 線上試玩：**[fingerwho.playfuni.net](https://fingerwho.playfuni.net)**
 
 <p>
   <img src="docs/screenshots/countdown.png" width="200" alt="四根手指放在螢幕上，各自有不同顏色的圈">
