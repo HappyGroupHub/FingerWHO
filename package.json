@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "cross-env NODE_ENV=production tsx server.ts",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p worker",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p worker",
     "build:cf": "cross-env STATIC_EXPORT=1 next build",
     "cf:dev": "npm run build:cf && wrangler dev",
     "deploy": "npm run build:cf && wrangler deploy"
