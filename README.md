@@ -89,16 +89,20 @@ npm run dev
 
 ## 部署
 
-推送到 `master` 時，GitHub Actions 會自動檢查並部署到 Cloudflare，流程寫在 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)。
+部署用 Cloudflare 的 Git 連線（Workers Builds）。推送到 `master` 時，Cloudflare 會自動打包並更新網站，不用設定任何 API token。
 
-第一次要在 GitHub repo 的 **Settings → Secrets and variables → Actions** 加兩個 secret：
+第一次設定：Cloudflare 後台 → Workers & Pages → fingerwho → Settings → Builds → Connect，選這個 repo，然後照下表填：
 
-| Secret | 哪裡拿 |
+| 欄位 | 值 |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare 後台 → My Profile → API Tokens → Create Token，選「Edit Cloudflare Workers」範本 |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 後台 → Workers & Pages 頁面右側的 Account ID |
+| Production branch | `master` |
+| Build command | `npm run build:cf` |
+| Deploy command | `npx wrangler deploy` |
+| Enable Preview builds | 不勾（使用 Durable Objects 的 Worker 不支援預覽網址） |
 
-也可以從本機手動部署：`npx wrangler login`，然後 `npm run deploy`。
+- 如果 Build command 一直顯示 Loading，或選不到分支，先到 GitHub → Settings → Applications → Cloudflare Workers and Pages，確認它可以存取這個 repo。
+- GitHub Actions（[`.github/workflows/check.yml`](.github/workflows/check.yml)）只負責檢查：每次 push 和 PR 都會跑型別檢查、lint、規則檢查和打包，不會部署。
+- 也可以從本機手動部署：`npx wrangler login`，然後 `npm run deploy`。
 
 **自己的網域**：網域加到 Cloudflare 之後，到 Workers & Pages → fingerwho → Settings → Domains & Routes → Add → Custom domain。
 
