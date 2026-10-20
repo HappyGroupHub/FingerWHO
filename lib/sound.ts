@@ -30,16 +30,18 @@ export function unlockAudio() {
   if (ctx.state !== "running") ctx.resume().catch(() => {});
 }
 
-// A3, D4, E4, A4: each new finger steps up, then wraps around.
-const TOUCH_NOTES = [220, 293.66, 329.63, 440];
+// A minor pentatonic from A3 up to G5: each new finger steps up, ten before it wraps around.
+const TOUCH_NOTES = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33, 659.26, 783.99];
 
 /** A soft, round boop as a finger goes down; `n` is how many fingers this device now holds. */
 export function playTouch(n: number) {
   if (!ctx || !master) return;
   const at = ctx.currentTime;
   const freq = TOUCH_NOTES[(Math.max(n, 1) - 1) % TOUCH_NOTES.length];
+  // Higher notes sound louder, so ease them down to keep the run even.
+  const loud = 0.3 * Math.pow(220 / freq, 0.3);
   // A faint third harmonic so the low notes still carry on a phone speaker.
-  for (const [mult, level] of [[1, 0.3], [3, 0.013]]) {
+  for (const [mult, level] of [[1, loud], [3, loud * 0.045]]) {
     const osc = ctx.createOscillator();
     const env = ctx.createGain();
     osc.frequency.value = freq * mult;
